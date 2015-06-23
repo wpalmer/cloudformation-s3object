@@ -1,0 +1,152 @@
+{
+  "Parameters": {
+    "LambdaS3Bucket": {
+      "Type": "String",
+      "Description": "The S3 Bucket containing the cloudformation-resource-s3object Lambda package"
+    },
+    "LambdaS3Key": {
+      "Type": "String",
+      "Description": "The S3 Key of the cloudformation-resource-s3object Lambda package within the LambdaS3Bucket"
+    }
+  },
+  "Resources": {
+    "OutputBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "Private"
+      }
+    },
+    "LambdaAllowWriteObject": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "AllowWriteObjects",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Action": [
+                          "s3:PutObject",
+                          "s3:PutObjectAcl",
+                          "s3:DeleteObject"
+                      ],
+                      "Resource": [
+                          {"Fn::Join": ["", [
+                            "arn:aws:s3:::",
+                            {"Ref": "OutputBucket"},
+                            "/object-to-create"
+                          ]]},
+			  {"Fn::Join": ["", [
+                            "arn:aws:s3:::",
+                            {"Ref": "OutputBucket"},
+                            "/noop.zip"
+                          ]]}
+                      ]
+                  }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "S3ObjectResourceService": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": ["LambdaAllowWriteObject"],
+      "Properties" : {
+        "Code": {
+          "S3Bucket": {"Ref": "LambdaS3Bucket"},
+          "S3Key": {"Ref": "LambdaS3Key"}
+        },
+        "Handler": "cloudformation-resource-s3object.handler",
+        "Role": {"Fn::GetAtt": ["LambdaAllowWriteObject", "Arn"]},
+        "Runtime": "nodejs"
+      }
+    },
+    "AnS3Object": {
+      "Type": "Custom::S3Object",
+      "DependsOn": ["S3ObjectResourceService","OutputBucket"],
+      "Properties": {
+        "ServiceToken": {"Fn::GetAtt": ["S3ObjectResourceService", "Arn"]},
+        "PutObject": {
+          "Bucket": {"Ref": "OutputBucket"},
+          "Key": "object-to-create",
+          "ACL": "public-read",
+          "ContentType": "text/plain",
+          "Body.Json": {"Here is": "Some Json", "Data": {"for": "you"}}
+        }
+      }
+    },
+    "AnS3ObjectForLambda": {
+      "Type": "Custom::S3Object",
+      "DependsOn": ["S3ObjectResourceService","OutputBucket"],
+      "Properties": {
+        "ServiceToken": {"Fn::GetAtt": ["S3ObjectResourceService", "Arn"]},
+        "PutObject": {
+          "Bucket": {"Ref": "OutputBucket"},
+          "Key": "noop.zip",
+          "Body.Base64": "UEsDBBQAAAAIAHZT10bNnuXE+gEAAAcFAAAWABwAY2xvdWRmb3JtYXRpb24tbm9vcC5qc1VUCQADjyaJVRgqiVV1eAsAAQToAwAABOgDAACNVE1v2zAMvedXCLrEwRI3W4odPOyyLocNxVbEze6qzcRGXcmV6HwgyH8f5dixpKJAdQrJR/Lxkc5OaCb2hn1nGl6bUkM0JnNm8ufx5NtoR1GzoKCEvYXF6SI6ibr8B9qUSiZs/GU+/zqbL2bzz+MzJYzgUCuNJi6EzCvQlLppZIYEjmAHEqcsUxLhgBN2GjF6qI/dL/tsQw2mVtLAD5UfKf93+vdPbFCXcltujtGAtS9FgY1JGE/Xd3fLNOVTL7wCYSxNLpWqg9hDcTRlJqoVGNXoDH7lCWspxvdq6wemYc/seUB3Ztj4tQGDA+rq8HFvWn2Qw0+BImGn89XZiu+qWCDW7lp56+AEc1GNrlwMmTwsVAttIF+3QIrHrR31U11WtV7dB4VVbXduCfgLK5RBKV4gGerGvc8f0d5Rwm5vF4FbYOEmW9tHvAAWioTkD+vHYOcFiJxONwlI2cfbu5Q4w2MNnLKDVA9TgdxiQSj3VuOL18tyFhTIqi8HQQK1i4k7O+qEmw7fTd9jErDuPqQ4VxIiR37vFLqyMdXhoLXS3KncOt4ruxFlFXEDMu+3zJYWT9KwT+yS+k7Tmxu21yUCy+lMGarrsE8k0xtqLTRylXTq9iCi0c94ZpnArIhgMhD3SS8PGbQysn0BktkZ6N/juqxugr7ciFbzH1BLAQIeAxQAAAAIAHZT10bNnuXE+gEAAAcFAAAWABgAAAAAAAEAAAC0gQAAAABjbG91ZGZvcm1hdGlvbi1ub29wLmpzVVQFAAOPJolVdXgLAAEE6AMAAAToAwAAUEsFBgAAAAABAAEAXAAAAEoCAAAAAA=="
+        }
+      }
+    },
+    "LambdaBasic": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": []
+      }
+    },
+    "NoopResourceService": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": ["AnS3ObjectForLambda", "LambdaBasic"],
+      "Properties" : {
+        "Code": {
+          "S3Bucket": {"Fn::GetAtt": ["AnS3ObjectForLambda", "Bucket"]},
+          "S3Key": {"Fn::GetAtt": ["AnS3ObjectForLambda", "Key"]}
+        },
+        "Handler": "cloudformation-noop.handler",
+        "Role": {"Fn::GetAtt": ["LambdaBasic", "Arn"]},
+        "Runtime": "nodejs"
+      }
+    },
+    "AnExampleResource": {
+      "Type": "Custom::Noop",
+      "DependsOn": ["NoopResourceService"],
+      "Properties": {
+        "ServiceToken": {"Fn::GetAtt": ["NoopResourceService", "Arn"]}
+      }
+    }
+  }
+}
