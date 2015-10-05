@@ -3,16 +3,10 @@
 CloudFormation has no built-in way of specifying the creation of an
 object within S3. It does, however, allow one to create "Custom
 Resources", allowing you to specify absolutely anything, via AWS Lambda
-functions. Unfortunately, Lambda functions must be stored in S3, leaving
-us with a Catch-22.
+functions.
 
-While there doesn't, at the moment, appear to be a sane way around this,
-we can at least make things better: S3Object is a Custom Resource Type
-for CloudFormation, allowing one to save objects to S3 as part of the
-stack creation process.
-
-Chained via dependency to a Lambda function, this can be used to create
-self-contained stacks which control arbitrary external resources.
+S3Object is a Custom Resource Type for CloudFormation, allowing one to
+save objects to S3 as part of the stack creation process.
 
 ## Warnings / Disclaimers
 
